@@ -5,7 +5,6 @@ describe CheckGraphite do
     expect(CheckGraphite::VERSION).not_to be nil
   end
 
-  it "does something useful" do
-    expect(false).to eq(true)
-  end
+  # TODO mock graphite web responses
+  # TODO check output of check_graphite
 end

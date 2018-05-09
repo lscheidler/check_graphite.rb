@@ -1,38 +1,42 @@
 # CheckGraphite
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/check_graphite`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Check graphite metrics
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'check_graphite'
+gem 'check_graphite', '0.1.0', git: 'https://github.com/lscheidler/check_graphite'
 ```
 
 And then execute:
 
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install check_graphite
+    $ bundle --binstubs bin
 
 ## Usage
 
-TODO: Write usage instructions here
+### check target againts thresholds
 
-## Development
+```
+bin/check_graphite -u http://localhost:8080 -t collectd.host1.memory.percent-used -c 60 -w 40
+```
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+### calculate percentage from first and second target and check percentage againts thresholds
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```
+bin/check_graphite -u http://localhost:8080 -t collectd.host1.GenericJMX-lisu_memory-heap.memory-used,collectd.host1.GenericJMX-lisu_memory-heap.memory-max -p -c 90 -w 80
+```
+
+### check sum of targets against thresholds
+
+```
+bin/check_graphite -u http://localhost:8080 --target=collectd.host1.aggregation-cpu-average.cpu-{system,user} -w 70 -c 90 -s --target-name cpu-usage
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/check_graphite.
+Bug reports and pull requests are welcome on GitHub at https://github.com/lscheidler/check_graphite.
 
 
 ## License

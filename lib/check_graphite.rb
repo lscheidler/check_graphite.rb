@@ -14,6 +14,7 @@
 
 require "check_graphite/version"
 
+require 'bundler/setup'
 require 'json'
 require 'net/http'
 require 'optparse'
@@ -29,34 +30,11 @@ module CheckGraphite
         parse_arguments
         check_arguments
 
-        datapoints = get_datapoints.compact
-        average = @targets.map do |target|
-          target_points = datapoints.find{|x| x['target'] == target}
-          expect_not_nil target, target_points, msg: 'No datapoints found for ' + target, status: :unknown
-
-          [target, get_average(target_points)]
-        end.to_h
-        @unknown << 'Percentage calculation needs two targets' if @percentage and datapoints.length < 2 and (datapoints.length%2 != 0)
-        exit_with_msg if failed?
-
-        if @percentage
-          while not average.empty?
-            value_name, value = average.shift
-            max_name, max = average.shift
-            expect_percentage_level target_name(value_name), value, max, warning_level: @warning_level, critical_level: @critical_level
-          end
-        elsif @summarize
-          name = target_name(average.first.first)
-          value = average.map{|key, value| value}.reduce(:+)
-          expect_level name, value, warning_level: @warning_level, critical_level: @critical_level
-        else
-          average.each do |key, value|
-            expect_level target_name(key), value, warning_level: @warning_level, critical_level: @critical_level
-          end
-        end
+        run_check
       end
     end
 
+    # set plugin defaults
     def set_plugin_defaults
       @from  = "-2min"
       @until = "now"
@@ -65,6 +43,7 @@ module CheckGraphite
       @targets = []
     end
 
+    # parse command line arguments
     def parse_arguments
       @options = OptionParser.new do |opts|
         opts.on('-u', '--graphite-url URL', 'Graphite url') do |graphite_url|
@@ -134,6 +113,7 @@ examples:
       @options.parse!
     end
 
+    # check required arguments
     def check_arguments
       raise OptionParser::MissingArgument.new 'Option -c must be set' if @critical_level.nil?
       raise OptionParser::MissingArgument.new 'Option -w must be set' if @warning_level.nil?
@@ -141,6 +121,51 @@ examples:
       raise OptionParser::MissingArgument.new 'Option -t must be set' if @targets.nil?
     end
 
+    # run check
+    def run_check
+      datapoints = get_datapoints.compact
+      @average = @targets.map do |target|
+        target_points = datapoints.find{|x| x['target'] == target}
+        expect_not_nil target, target_points, msg: 'No datapoints found for ' + target, status: :unknown
+
+        [target, get_average(target_points)]
+      end.to_h
+      @unknown << 'Percentage calculation needs two targets' if @percentage and datapoints.length < 2 and (datapoints.length%2 != 0)
+      exit_with_msg if failed?
+
+      if @percentage
+        check_percentage
+      elsif @summarize
+        check_sum
+      else
+        check_all
+      end
+    end
+
+    # take two target, first as value, second as maximum and check percentage againts thresholds
+    def check_percentage
+      while not @average.empty?
+        value_name, value = @average.shift
+        max = @average.shift.last
+        expect_percentage_level target_name(value_name), value, max, warning_level: @warning_level, critical_level: @critical_level
+      end
+    end
+
+    # summarize all targets and check this against thresholds
+    def check_sum
+      name = target_name(@average.first.first)
+      value = @average.map{|key, v| v}.reduce(:+)
+      expect_level name, value, warning_level: @warning_level, critical_level: @critical_level
+    end
+
+    # check all targets against thresholds
+    def check_all
+      @average.each do |key, value|
+        expect_level target_name(key), value, warning_level: @warning_level, critical_level: @critical_level
+      end
+    end
+
+    # retrieve datapoints from graphite
     def get_datapoints
       uri = URI(
               @graphite_url + '/render?format=json' +
@@ -165,6 +190,9 @@ examples:
       end
     end
 
+    # calculate average from datapoints
+    #
+    # @param data [Hash] target result from graphite
     def get_average data
       if data.nil? or data['datapoints'].nil?
         nil
@@ -174,6 +202,9 @@ examples:
       end
     end
 
+    # return target name
+    #
+    # @param target [String] target
     def target_name target
       if @target_name
         @target_name
