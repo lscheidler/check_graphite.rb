@@ -125,7 +125,7 @@ examples:
     def run_check
       datapoints = get_datapoints.compact
       @average = @targets.map do |target|
-        target_points = datapoints.find{|x| x['target'] == target}
+        target_points = datapoints.find{|x| File.fnmatch(target, x['target'])}
         expect_not_nil target, target_points, msg: 'No datapoints found for ' + target, status: :unknown
 
         [target, get_average(target_points)]
